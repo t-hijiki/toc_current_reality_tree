@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f5f5f7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="現状ツリー">
+<title>TOC 現状ツリー</title>
+<style>
+:root{--bg:#f5f5f7;--panel:#fff;--text:#1d1d1f;--sub:#6e6e73;--line:#d2d2d7;--accent:#0a66c2;--danger:#c62828;--box:#fffdf5}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Hiragino Sans","Yu Gothic",sans-serif}.app{max-width:1100px;margin:0 auto;padding:12px}.topbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px;margin-bottom:10px}button,.filebtn{appearance:none;border:1px solid var(--line);background:#fff;color:var(--text);border-radius:11px;padding:10px 12px;font:inherit;font-size:14px;font-weight:650;min-height:44px}.primary{background:var(--accent);color:#fff;border-color:var(--accent)}.danger{color:var(--danger)}.active{outline:3px solid rgba(10,102,194,.2);border-color:var(--accent)}.spacer{flex:1}.hint{font-size:12px;color:var(--sub);line-height:1.5;padding:0 4px 8px}.workspace{position:relative;width:100%;height:72vh;min-height:520px;background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;touch-action:none;background-image:linear-gradient(#f3f3f5 1px,transparent 1px),linear-gradient(90deg,#f3f3f5 1px,transparent 1px);background-size:24px 24px}svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.nodes{position:absolute;inset:0}.node{position:absolute;min-width:130px;max-width:240px;padding:12px 14px;background:var(--box);border:2px solid #333;border-radius:8px;text-align:center;font-size:15px;line-height:1.35;box-shadow:0 2px 6px rgba(0,0,0,.08);user-select:none;touch-action:none}.node.selected{outline:4px solid rgba(10,102,194,.2);border-color:var(--accent)}.node textarea{width:100%;border:0;background:transparent;font:inherit;text-align:center;resize:none;overflow:hidden;outline:none;color:var(--text);padding:0;min-height:22px}.banana{position:absolute;width:180px;height:68px;border:3px solid #d99b00;border-radius:50%;background:rgba(255,221,87,.15);user-select:none;touch-action:none}.banana.selected{outline:4px solid rgba(217,155,0,.18)}.status{margin-top:8px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:13px;color:var(--sub)}input[type=file]{display:none}@media(max-width:600px){.workspace{height:68vh;min-height:500px}button,.filebtn{padding:9px 10px;font-size:13px}.node{min-width:118px;max-width:190px;font-size:14px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <button id="addBox" class="primary">＋ 箱</button>
+    <button id="arrowMode">→ 矢印</button>
+    <button id="addBanana">◯ バナナ</button>
+    <button id="deleteBtn" class="danger">削除</button>
+    <span class="spacer"></span>
+    <button id="saveBtn">保存</button>
+    <button id="loadBtn">復元</button>
+    <button id="exportBtn">JSON書出し</button>
+    <label class="filebtn">JSON読込み<input id="importFile" type="file" accept=".json,application/json"></label>
+    <button id="clearBtn" class="danger">全消去</button>
+  </div>
+  <div class="hint">箱：ドラッグで移動、文字部分をタップして編集。矢印：矢印モード→原因の箱→結果の箱。バナナ：AND条件の囲みとして配置。</div>
+  <div id="workspace" class="workspace">
+    <svg id="svg"><defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#333"/></marker></defs><g id="edges"></g></svg>
+    <div id="nodes" class="nodes"></div>
+  </div>
+  <div id="status" class="status">準備完了</div>
+</div>
+<script>
+(()=>{
+const ws=document.getElementById('workspace'),nodesLayer=document.getElementById('nodes'),edgesG=document.getElementById('edges'),status=document.getElementById('status');
+const addBoxBtn=document.getElementById('addBox'),arrowBtn=document.getElementById('arrowMode'),addBananaBtn=document.getElementById('addBanana'),deleteBtn=document.getElementById('deleteBtn'),saveBtn=document.getElementById('saveBtn'),loadBtn=document.getElementById('loadBtn'),exportBtn=document.getElementById('exportBtn'),importFile=document.getElementById('importFile'),clearBtn=document.getElementById('clearBtn');
+let state={boxes:[],bananas:[],arrows:[]},selected=null,arrowMode=false,arrowStart=null,drag=null,idSeq=1;const uid=p=>p+Date.now().toString(36)+(idSeq++).toString(36);const msg=t=>status.textContent=t;
+function addBox(x=60,y=60,text='内容を入力'){const id=uid('b');state.boxes.push({id,x,y,text,w:160,h:64});render();select('box',id)}
+function addBanana(x=120,y=150){const id=uid('n');state.bananas.push({id,x,y,w:180,h:68});render();select('banana',id)}
+function select(type,id){selected={type,id};renderSelection()}function renderSelection(){document.querySelectorAll('.node,.banana').forEach(e=>e.classList.remove('selected'));if(!selected)return;document.querySelector(`[data-id="${selected.id}"]`)?.classList.add('selected')}
+function autoGrow(t){t.style.height='auto';t.style.height=Math.max(22,t.scrollHeight)+'px'}
+function render(){nodesLayer.innerHTML='';state.bananas.forEach(b=>{const e=document.createElement('div');e.className='banana';e.dataset.id=b.id;e.dataset.type='banana';Object.assign(e.style,{left:b.x+'px',top:b.y+'px',width:b.w+'px',height:b.h+'px'});nodesLayer.appendChild(e)});state.boxes.forEach(b=>{const e=document.createElement('div');e.className='node';e.dataset.id=b.id;e.dataset.type='box';e.style.left=b.x+'px';e.style.top=b.y+'px';e.style.width=b.w+'px';const t=document.createElement('textarea');t.rows=2;t.value=b.text;t.addEventListener('input',ev=>{b.text=ev.target.value;autoGrow(ev.target);b.h=e.getBoundingClientRect().height;drawEdges()});t.addEventListener('pointerdown',ev=>{if(!arrowMode)ev.stopPropagation()});t.addEventListener('focus',()=>select('box',b.id));e.appendChild(t);nodesLayer.appendChild(e);requestAnimationFrame(()=>{autoGrow(t);b.h=e.getBoundingClientRect().height;drawEdges()})});renderSelection();drawEdges()}
+function center(id){const b=state.boxes.find(x=>x.id===id);return b?{x:b.x+b.w/2,y:b.y+b.h/2,b}:null}
+function pts(a,b){const dx=b.x-a.x,dy=b.y-a.y,aw=a.b.w/2,ah=a.b.h/2,bw=b.b.w/2,bh=b.b.h/2,sa=1/Math.max(Math.abs(dx)/(aw||1),Math.abs(dy)/(ah||1)),sb=1/Math.max(Math.abs(dx)/(bw||1),Math.abs(dy)/(bh||1));return{x1:a.x+dx*sa,y1:a.y+dy*sa,x2:b.x-dx*sb,y2:b.y-dy*sb}}
+function drawEdges(){edgesG.innerHTML='';state.arrows.forEach(e=>{const a=center(e.from),b=center(e.to);if(!a||!b)return;const p=pts(a,b),l=document.createElementNS('http://www.w3.org/2000/svg','line');for(const [k,v] of Object.entries(p))l.setAttribute(k,v);l.setAttribute('stroke','#333');l.setAttribute('stroke-width','2.2');l.setAttribute('marker-end','url(#arrowhead)');edgesG.appendChild(l)})}
+nodesLayer.addEventListener('pointerdown',e=>{const el=e.target.closest('.node,.banana');if(!el)return;const id=el.dataset.id,type=el.dataset.type;if(arrowMode&&type==='box'){e.preventDefault();if(!arrowStart){arrowStart=id;select('box',id);msg('次に「結果」の箱をタップしてください')}else if(arrowStart!==id){if(!state.arrows.some(a=>a.from===arrowStart&&a.to===id))state.arrows.push({id:uid('a'),from:arrowStart,to:id});arrowStart=null;arrowMode=false;arrowBtn.classList.remove('active');msg('矢印を追加しました');render()}return}select(type,id);if(e.target.tagName==='TEXTAREA')return;e.preventDefault();const r=ws.getBoundingClientRect(),item=type==='box'?state.boxes.find(x=>x.id===id):state.bananas.find(x=>x.id===id);drag={type,id,dx:e.clientX-r.left-item.x,dy:e.clientY-r.top-item.y}});
+ws.addEventListener('pointermove',e=>{if(!drag)return;const r=ws.getBoundingClientRect(),item=drag.type==='box'?state.boxes.find(x=>x.id===drag.id):state.bananas.find(x=>x.id===drag.id);if(!item)return;item.x=Math.max(0,Math.min(ws.clientWidth-item.w,e.clientX-r.left-drag.dx));item.y=Math.max(0,Math.min(ws.clientHeight-item.h,e.clientY-r.top-drag.dy));const el=document.querySelector(`[data-id="${drag.id}"]`);if(el){el.style.left=item.x+'px';el.style.top=item.y+'px'}drawEdges()});window.addEventListener('pointerup',()=>drag=null);
+addBoxBtn.onclick=()=>{addBox(40+state.boxes.length*18,40+state.boxes.length*18);msg('箱を追加しました')};addBananaBtn.onclick=()=>{addBanana(100+state.bananas.length*15,180+state.bananas.length*15);msg('バナナを追加しました')};arrowBtn.onclick=()=>{arrowMode=!arrowMode;arrowStart=null;arrowBtn.classList.toggle('active',arrowMode);msg(arrowMode?'まず「原因」の箱をタップしてください':'矢印モードを解除しました')};deleteBtn.onclick=()=>{if(!selected){msg('削除する要素を選んでください');return}if(selected.type==='box'){state.boxes=state.boxes.filter(x=>x.id!==selected.id);state.arrows=state.arrows.filter(a=>a.from!==selected.id&&a.to!==selected.id)}else state.bananas=state.bananas.filter(x=>x.id!==selected.id);selected=null;render();msg('削除しました')};
+saveBtn.onclick=()=>{localStorage.setItem('toc-current-reality-tree',JSON.stringify(state));msg('この端末のブラウザに保存しました')};loadBtn.onclick=()=>{const raw=localStorage.getItem('toc-current-reality-tree');if(!raw){msg('保存データがありません');return}try{state=JSON.parse(raw);selected=null;render();msg('保存データを復元しました')}catch{msg('保存データを読み込めませんでした')}};
+exportBtn.onclick=()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='toc-current-reality-tree.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);msg('JSONを書き出しました')};
+importFile.onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{const o=JSON.parse(await f.text());if(!Array.isArray(o.boxes)||!Array.isArray(o.bananas)||!Array.isArray(o.arrows))throw 0;state=o;selected=null;render();msg('JSONを読み込みました')}catch{msg('このJSONは読み込めません')}e.target.value=''};
+clearBtn.onclick=()=>{if(!confirm('ツリーをすべて消去しますか？'))return;state={boxes:[],bananas:[],arrows:[]};selected=null;render();msg('全消去しました')};
+addBox(70,330,'UDE / 好ましくない現象');addBox(70,120,'原因・前提');state.arrows.push({id:uid('a'),from:state.boxes[1].id,to:state.boxes[0].id});addBanana(230,225);selected=null;render();
+})();
+</script>
+</body></html>
